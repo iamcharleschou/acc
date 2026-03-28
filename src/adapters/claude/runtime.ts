@@ -83,6 +83,8 @@ function hasNonEmptyString(value: string | undefined): value is string {
 /** 构建 apiKeyHelper 命令，Claude CLI 会执行该命令来获取 API key */
 function buildApiKeyHelper(apiKey: string): string {
   // 对单引号做转义：' → '"'"'（结束引用 → 转义引号 → 重新开始引用）
+  // 使用 printf '%s' 而非 echo，避免 echo 对 \n、\t 等转义序列的扩展行为，
+  // 同时规避 API Key 中含换行符或反引号时可能触发的 Shell 注入风险
   const escaped = apiKey.replaceAll("'", "'\"'\"'");
-  return `echo '${escaped}'`;
+  return `printf '%s' '${escaped}'`;
 }

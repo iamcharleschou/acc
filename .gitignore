@@ -4,3 +4,9 @@ coverage
 *.log
 .DS_Store
 docs/
+
+# 敏感文件：防止意外提交 API Key 或本地环境配置
+.env
+.env.*
+*.env
+auth.json
