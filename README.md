@@ -1,13 +1,20 @@
 # acc
 
-`acc` 是 ClaudeCode (`cc`)、Codex 和 Gemini 的 Agent Configuration Center，用于统一管理 provider alias，并一键切换运行环境。
+> **A**gent **C**onfiguration **C**enter — 统一管理 ClaudeCode、Codex、Gemini 的 provider 配置，一键切换运行环境。
 
-## Requirements
+## 功能概览
 
-- Node.js >= 20
-- pnpm >= 10
+- **Provider 管理** — 为每个 Agent 添加、编辑、删除多套 provider（别名索引）
+- **一键切换** — `acc use <agent> <alias>` 自动写入对应 Agent 的配置文件并启动 CLI
+- **安全存储** — 敏感文件使用 `0o600` 权限，修改前自动备份
+- **旧版兼容** — 支持 `acc add / list / edit / remove` 简写（默认操作 ClaudeCode）
 
-## Install
+## 环境要求
+
+- Node.js ≥ 20
+- pnpm ≥ 10
+
+## 安装
 
 ```bash
 pnpm add -g acc
@@ -19,23 +26,26 @@ pnpm add -g acc
 npm install -g acc
 ```
 
-## Development
+## 使用
+
+### Provider 管理（通用语法）
 
 ```bash
-pnpm install
-pnpm lint
-pnpm test:run
-pnpm dev -- provider list cc
+acc provider add    <agent> <providerName>   # 交互式添加
+acc provider list   <agent>                  # 列表展示
+acc provider edit   <agent> <alias>          # 交互式编辑
+acc provider remove <agent> <alias>          # 删除
 ```
 
-构建后可直接执行：
+### 切换并启动 Agent
 
 ```bash
-pnpm build
-node dist/cli.cjs provider list cc
+acc use <agent> <alias> [-- <额外参数>]
 ```
 
-## Commands
+`--` 之后的参数会透传给对应的 Agent CLI。
+
+---
 
 ### ClaudeCode (`cc`)
 
@@ -47,14 +57,16 @@ acc provider remove cc yh
 acc use cc yh -- --model opus
 ```
 
-### Legacy Claude 兼容语法
+`acc use cc <alias>` 会合并用户 `~/.claude/settings.json` 与 provider 环境变量，生成运行时 settings 后启动 `claude`。
+
+**旧版兼容语法**（默认 agent 为 `cc`）：
 
 ```bash
-acc add minimax
-acc list
-acc edit yh
-acc remove yh
-acc use yh -- --model opus
+acc add minimax          # → acc provider add cc minimax
+acc list                 # → acc provider list cc
+acc edit yh              # → acc provider edit cc yh
+acc remove yh            # → acc provider remove cc yh
+acc use yh -- --model opus  # → acc use cc yh -- --model opus
 ```
 
 ### Codex
@@ -67,7 +79,10 @@ acc provider remove codex 88code
 acc use codex 88code -- --model gpt-5
 ```
 
-`acc use codex <alias>` 会管理 `~/.codex/auth.json`，并将所选 provider 的 `OPENAI_API_KEY` 写入该文件（用于当前设计下的 Codex 认证切换）。
+`acc use codex <alias>` 会：
+1. 在 `~/.codex/config.toml` 中写入 `[model_providers.<alias>]` 块并设置 `model_provider`
+2. 将 `OPENAI_API_KEY` 写入 `~/.codex/auth.json`
+3. 启动 `codex`；失败时自动回滚配置文件
 
 ### Gemini
 
@@ -79,16 +94,42 @@ acc provider remove gemini official
 acc use gemini official -- --model gemini-2.5-pro
 ```
 
-`acc use gemini <alias>` 会完整管理并覆盖 `~/.gemini/.env`（不是与旧文件合并），然后启动 `gemini` 命令。  
-`acc use gemini <alias> -- ...` 会把 `--` 后的参数透传给 `gemini`。  
-Gemini provider 存储在 `config.env`，其中 `GEMINI_API_KEY` 必填；`GOOGLE_GEMINI_BASE_URL` 与 `GEMINI_MODEL` 可选。  
-当未配置 `GOOGLE_GEMINI_BASE_URL` 时，Gemini CLI 使用官方 endpoint；当未配置 `GEMINI_MODEL` 时，Gemini CLI 使用其默认模型。  
-除了上述内置字段，`config.env` 也可包含合法 dotenv 风格键（`^[A-Za-z_][A-Za-z0-9_]*$`），`use gemini` 时会一并写入 `~/.gemini/.env`。
+`acc use gemini <alias>` 会**完整覆盖**（非合并）`~/.gemini/.env`，然后启动 `gemini`。
 
-## Data Files
+| 环境变量 | 必填 | 说明 |
+|---|---|---|
+| `GEMINI_API_KEY` | ✅ | API 密钥 |
+| `GOOGLE_GEMINI_BASE_URL` | ❌ | 未配置时使用官方 endpoint |
+| `GEMINI_MODEL` | ❌ | 未配置时使用 CLI 默认模型 |
+| 自定义键 (`^[A-Za-z_][A-Za-z0-9_]*$`) | ❌ | 一并写入 `.env` |
 
-- `~/.acc/config.json`
-- `~/.acc/runtime/claude/settings.json`
-- `~/.codex/config.toml`
-- `~/.codex/auth.json`
-- `~/.gemini/.env`
+## 数据文件
+
+| 文件路径 | 用途 |
+|---|---|
+| `~/.acc/config.json` | Provider 主配置（全部 agent） |
+| `~/.acc/runtime/claude/settings.json` | Claude 运行时生成的 settings |
+| `~/.acc/backups/codex/` | Codex 配置备份（含时间戳） |
+| `~/.codex/config.toml` | Codex 主配置 |
+| `~/.codex/auth.json` | Codex 认证文件 |
+| `~/.gemini/.env` | Gemini 环境变量 |
+
+## 开发
+
+```bash
+pnpm install
+pnpm lint          # TypeScript 类型检查
+pnpm test:run      # 运行测试
+pnpm dev -- provider list cc   # 开发模式运行
+```
+
+构建后直接执行：
+
+```bash
+pnpm build
+node dist/cli.cjs provider list cc
+```
+
+## License
+
+MIT
