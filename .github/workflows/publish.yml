@@ -31,6 +31,5 @@ jobs:
 
       - run: pnpm build
 
-      - run: pnpm publish --no-git-checks --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Trusted Publishing
+      - run: npm publish --provenance --access public
