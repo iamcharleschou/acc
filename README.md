@@ -52,9 +52,9 @@ acc use <agent> <alias> [-- <额外参数>]
 ```bash
 acc provider add cc minimax
 acc provider list cc
-acc provider edit cc yh
-acc provider remove cc yh
-acc use cc yh -- --model opus
+acc provider edit cc minimax
+acc provider remove cc minimax
+acc use cc minimax -- --dangerously-skip-permissions --mcp-config .mcp.json
 ```
 
 `acc use cc <alias>` 会合并用户 `~/.claude/settings.json` 与 provider 环境变量，生成运行时 settings 后启动 `claude`。
@@ -64,19 +64,19 @@ acc use cc yh -- --model opus
 ```bash
 acc add minimax          # → acc provider add cc minimax
 acc list                 # → acc provider list cc
-acc edit yh              # → acc provider edit cc yh
-acc remove yh            # → acc provider remove cc yh
-acc use yh -- --model opus  # → acc use cc yh -- --model opus
+acc edit minimax         # → acc provider edit cc minimax
+acc remove minimax       # → acc provider remove cc minimax
+acc use minimax -- --dangerously-skip-permissions --mcp-config .mcp.json  # claude --dangerously-skip-permissions --mcp-config .mcp.json
 ```
 
 ### Codex
 
 ```bash
-acc provider add codex 88code
+acc provider add codex runanytime
 acc provider list codex
-acc provider edit codex 88code
-acc provider remove codex 88code
-acc use codex 88code -- --model gpt-5
+acc provider edit codex runanytime
+acc provider remove codex runanytime
+acc use codex runanytime -- --model gpt-5.4
 ```
 
 `acc use codex <alias>` 会：
@@ -87,7 +87,7 @@ acc use codex 88code -- --model gpt-5
 ### Gemini
 
 ```bash
-acc provider add gemini google
+acc provider add gemini official
 acc provider list gemini
 acc provider edit gemini official
 acc provider remove gemini official
