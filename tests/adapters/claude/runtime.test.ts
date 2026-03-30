@@ -58,7 +58,7 @@ describe("Claude runtime helpers", () => {
 
     const actual = buildClaudeRuntimeSettings(userSettings, provider);
 
-    expect(actual.apiKeyHelper).toBe("echo 'new-key'");
+    expect(actual.apiKeyHelper).toBe("printf '%s' 'new-key'");
     expect(actual.env).toEqual({
       KEEP_ME: "yes",
       ANTHROPIC_BASE_URL: "https://provider.example.com",
