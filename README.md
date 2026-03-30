@@ -98,10 +98,10 @@ acc use gemini official -- --model gemini-2.5-pro
 
 | 环境变量 | 必填 | 说明 |
 |---|---|---|
-| `GEMINI_API_KEY` | ✅ | API 密钥 |
-| `GOOGLE_GEMINI_BASE_URL` | ❌ | 未配置时使用官方 endpoint |
-| `GEMINI_MODEL` | ❌ | 未配置时使用 CLI 默认模型 |
-| 自定义键 (`^[A-Za-z_][A-Za-z0-9_]*$`) | ❌ | 一并写入 `.env` |
+| `GEMINI_API_KEY` | 是 | API 密钥 |
+| `GOOGLE_GEMINI_BASE_URL` | 否 | 未配置时使用官方 endpoint |
+| `GEMINI_MODEL` | 否 | 未配置时使用 CLI 默认模型 |
+| 自定义键 (`^[A-Za-z_][A-Za-z0-9_]*$`) | 否 | 一并写入 `.env` |
 
 ## 数据文件
 
