@@ -15,9 +15,12 @@ import {
   promptCodexProviderAdd,
   promptCodexProviderEditFromStored
 } from "../adapters/codex/prompts.js";
+import { applyCodexProviderConfig } from "../adapters/codex/apply-config.js";
 import { parseAgentId, type AgentId } from "../core/agents.js";
 import { AccValidationError } from "../core/errors.js";
+import { resolveAccPaths } from "../core/paths.js";
 import { ProviderStore } from "../core/store/provider-store.js";
+import { ActiveStore } from "../core/store/active-store.js";
 import type { StoredProvider } from "../core/store/schema.js";
 import type { ProviderParsers } from "../adapters/base.js";
 import { ProviderService, type ProviderEditMutation } from "../services/provider-service.js";
@@ -34,15 +37,20 @@ type ProviderPromptMap<TPrompt> = Partial<Record<AgentId, TPrompt>>;
 /** provider 命令的可注入依赖（service、prompts、IO） */
 export type ProviderCommandDeps = {
   service: Pick<ProviderService, "add" | "list" | "remove" | "get" | "edit">;
+  activeStore: Pick<ActiveStore, "getActive" | "setActive">;
   addPrompts: ProviderPromptMap<ProviderAddPrompt>;
   editPrompts: ProviderPromptMap<ProviderEditPrompt>;
   isInteractive: () => boolean;
   writeLine: (line: string) => void;
+  /** Codex 配置应用函数（不启动 CLI），默认为 applyCodexProviderConfig */
+  applyCodexConfig: typeof applyCodexProviderConfig;
+  /** 路径解析函数 */
+  resolvePaths: (homeDir: string) => Pick<ReturnType<typeof import("../core/paths.js").resolveAccPaths>, "codexConfigPath" | "codexAuthPath">;
 };
 
-type ResolvedProviderCommandDeps = Pick<ProviderCommandDeps, "addPrompts" | "editPrompts" | "isInteractive" | "writeLine">;
+type ResolvedProviderCommandDeps = Pick<ProviderCommandDeps, "addPrompts" | "editPrompts" | "isInteractive" | "writeLine" | "applyCodexConfig" | "resolvePaths">;
 
-export type ProviderCommandHooks = Pick<CliProgramHooks, "onProviderAdd" | "onProviderList" | "onProviderRemove" | "onProviderEdit">;
+export type ProviderCommandHooks = Pick<CliProgramHooks, "onProviderAdd" | "onProviderList" | "onProviderRemove" | "onProviderEdit" | "onProviderActive">;
 
 /**
  * 创建 provider 子命令的 hooks。
@@ -53,10 +61,16 @@ export function createProviderCommandHooks(
 ): ProviderCommandHooks {
   const deps = resolveProviderCommandDeps(partialDeps);
   let service = partialDeps.service;
+  let activeStore = partialDeps.activeStore;
 
   function getService(): Pick<ProviderService, "add" | "list" | "remove" | "get" | "edit"> {
     service ??= createDefaultProviderService();
     return service;
+  }
+
+  function getActiveStore(): Pick<ActiveStore, "getActive" | "setActive"> {
+    activeStore ??= new ActiveStore();
+    return activeStore;
   }
 
   return {
@@ -69,7 +83,8 @@ export function createProviderCommandHooks(
     onProviderList: async (agent) => {
       const agentId = requireAgentId(agent);
       const providers = await getService().list(agentId);
-      deps.writeLine(renderProviderTable(agentId, providers));
+      const activeAlias = await getActiveStore().getActive(agentId);
+      deps.writeLine(renderProviderTable(agentId, providers, activeAlias));
     },
     onProviderRemove: async (agent, alias) => {
       const agentId = requireAgentId(agent);
@@ -85,6 +100,24 @@ export function createProviderCommandHooks(
       const provider = await getService().get(agentId, alias);
       const mutation = await editPrompt(provider);
       await getService().edit(agentId, alias, mutation);
+    },
+    onProviderActive: async (agent, alias) => {
+      const agentId = requireAgentId(agent);
+      // 只有 codex 支持 active 命令（其他 agent 通过 acc use 切换）
+      if (agentId !== "codex") {
+        throw new AccValidationError(
+          `provider active is only supported for codex. Use "acc use ${agentId} ${alias}" to switch ${agentId} providers.`
+        );
+      }
+      // 确认 alias 存在
+      const provider = await getService().get(agentId, alias);
+      // 应用配置到 ~/.codex/config.toml 和 ~/.codex/auth.json
+      const homeDir = process.env.HOME ?? "";
+      const paths = deps.resolvePaths(homeDir);
+      await deps.applyCodexConfig(paths, provider);
+      // 记录激活状态
+      await getActiveStore().setActive(agentId, alias);
+      deps.writeLine(`Activated codex provider: ${alias}`);
     }
   };
 }
@@ -103,7 +136,9 @@ function resolveProviderCommandDeps(partialDeps: Partial<ProviderCommandDeps>): 
       gemini: promptGeminiProviderEditFromStored
     },
     isInteractive: partialDeps.isInteractive ?? (() => Boolean(process.stdin.isTTY && process.stdout.isTTY)),
-    writeLine: partialDeps.writeLine ?? ((line: string) => console.log(line))
+    writeLine: partialDeps.writeLine ?? ((line: string) => console.log(line)),
+    applyCodexConfig: partialDeps.applyCodexConfig ?? applyCodexProviderConfig,
+    resolvePaths: partialDeps.resolvePaths ?? resolveAccPaths
   };
 }
 
@@ -143,13 +178,20 @@ function requireAgentId(agent: string): AgentId {
 // --- provider list 表格渲染 ---
 
 /** 将 provider 列表渲染为 ASCII 表格，空列表显示使用提示 */
-function renderProviderTable(agentId: AgentId, providers: StoredProvider[]): string {
+function renderProviderTable(agentId: AgentId, providers: StoredProvider[], activeAlias: string | null = null): string {
   if (providers.length === 0) {
     return renderEmptyState(agentId);
   }
 
   const rows = providers
-    .map((provider) => toSummaryRow(agentId, provider))
+    .map((provider) => {
+      const row = toSummaryRow(agentId, provider);
+      // 在 ALIAS 列加标记 active 状态
+      if (activeAlias !== null && provider.alias === activeAlias) {
+        row[0] = `${row[0]} *`;
+      }
+      return row;
+    })
     .sort((left, right) => left[0].localeCompare(right[0]));
   return renderTable(["ALIAS", "PROVIDER", "ENDPOINT", "AUTH"], rows);
 }

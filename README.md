@@ -32,9 +32,10 @@ npm install -g acc
 
 ```bash
 acc provider add    <agent> <providerName>   # 交互式添加
-acc provider list   <agent>                  # 列表展示
+acc provider list   <agent>                  # 列表展示（当前激活的 alias 以 * 标记）
 acc provider edit   <agent> <alias>          # 交互式编辑
 acc provider remove <agent> <alias>          # 删除
+acc provider active codex  <alias>           # 仅替换 Codex 配置（不启动 CLI）
 ```
 
 ### 切换并启动 Agent
@@ -73,9 +74,10 @@ acc use minimax -- --dangerously-skip-permissions --mcp-config .mcp.json  # clau
 
 ```bash
 acc provider add codex runanytime
-acc provider list codex
+acc provider list codex                      # 当前激活的 alias 以 * 标记
 acc provider edit codex runanytime
 acc provider remove codex runanytime
+acc provider active codex runanytime         # 写入 config.toml + auth.json，不启动 codex
 acc use codex runanytime -- --model gpt-5.4
 ```
 

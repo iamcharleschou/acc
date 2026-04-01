@@ -8,6 +8,8 @@ export type CliProgramHooks = {
   onProviderList?: (agent: string) => Promise<void> | void;
   onProviderEdit?: (agent: string, alias: string) => Promise<void> | void;
   onProviderRemove?: (agent: string, alias: string) => Promise<void> | void;
+  /** 应用指定 alias 的配置（写入配置文件，不启动 CLI） */
+  onProviderActive?: (agent: string, alias: string) => Promise<void> | void;
   onUse?: (agent: string, alias: string, extra: string[]) => Promise<void> | void;
 };
 
@@ -31,6 +33,9 @@ export function createProgram(hooks: CliProgramHooks = {}): Command {
   });
   provider.command("remove <agent> <alias>").action(async (agent: string, alias: string) => {
     await hooks.onProviderRemove?.(agent, alias);
+  });
+  provider.command("active <agent> <alias>").action(async (agent: string, alias: string) => {
+    await hooks.onProviderActive?.(agent, alias);
   });
 
   // `acc use <agent> <alias> [extra...]`

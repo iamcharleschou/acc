@@ -1,6 +1,6 @@
 {
   "name": "@charleschou/acc",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Unified CLI to manage provider aliases and switch runtime environments for ClaudeCode, Codex, and Gemini.",
   "keywords": [
     "claude-code",

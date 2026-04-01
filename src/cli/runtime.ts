@@ -3,7 +3,7 @@
 import { expandLegacyArgs, normalizeControlArgs } from "./normalize.js";
 import { createProgram, type CliProgramHooks } from "./program.js";
 
-type ProviderHookKeys = "onProviderAdd" | "onProviderList" | "onProviderEdit" | "onProviderRemove";
+type ProviderHookKeys = "onProviderAdd" | "onProviderList" | "onProviderEdit" | "onProviderRemove" | "onProviderActive";
 type ProviderCliHooks = Pick<CliProgramHooks, ProviderHookKeys>;
 type UseCliHooks = Pick<CliProgramHooks, "onUse">;
 
@@ -79,6 +79,9 @@ function needsDefaultProviderHooks(resolvedArgs: string[], hooks: CliProgramHook
   }
   if (command === "edit") {
     return hooks.onProviderEdit === undefined;
+  }
+  if (command === "active") {
+    return hooks.onProviderActive === undefined;
   }
   return false;
 }

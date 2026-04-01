@@ -493,6 +493,166 @@ describe("createProviderCommandHooks", () => {
     await expect(hooks.onProviderList?.("unknown")).rejects.toThrow(AccValidationError);
   });
 
+  it("provider active writes codex config and records active alias", async () => {
+    const lines: string[] = [];
+    const codexProvider = {
+      alias: "dev",
+      providerName: "openai",
+      config: {
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-secret",
+        wireApi: "responses",
+        requiresOpenAiAuth: true
+      }
+    };
+    const service = {
+      add: vi.fn(async () => undefined),
+      list: vi.fn(async () => []),
+      remove: vi.fn(async () => undefined),
+      get: vi.fn(async () => codexProvider),
+      edit: vi.fn(async () => undefined)
+    };
+    const applyCodexConfig = vi.fn(async () => undefined);
+    const activeStore = {
+      getActive: vi.fn(async () => null as string | null),
+      setActive: vi.fn(async () => undefined)
+    };
+    const hooks = createProviderCommandHooks({
+      service,
+      activeStore,
+      applyCodexConfig,
+      resolvePaths: () => ({
+        codexConfigPath: "/tmp/.codex/config.toml",
+        codexAuthPath: "/tmp/.codex/auth.json",
+        accDir: "/tmp/.acc",
+        accConfigPath: "/tmp/.acc/config.json",
+        accClaudeRuntimePath: "/tmp/.acc/runtime/claude/settings.json",
+        accCodexBackupDir: "/tmp/.acc/backups/codex",
+        claudeSettingsPath: "/tmp/.claude/settings.json",
+        geminiEnvPath: "/tmp/.gemini/.env"
+      }),
+      writeLine: (line) => lines.push(line)
+    });
+
+    await hooks.onProviderActive?.("codex", "dev");
+
+    expect(service.get).toHaveBeenCalledWith("codex", "dev");
+    expect(applyCodexConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        codexConfigPath: "/tmp/.codex/config.toml",
+        codexAuthPath: "/tmp/.codex/auth.json"
+      }),
+      codexProvider
+    );
+    expect(activeStore.setActive).toHaveBeenCalledWith("codex", "dev");
+    expect(lines).toEqual(["Activated codex provider: dev"]);
+  });
+
+  it("provider active rejects non-codex agents", async () => {
+    const service = {
+      add: vi.fn(async () => undefined),
+      list: vi.fn(async () => []),
+      remove: vi.fn(async () => undefined),
+      get: vi.fn(async () => ({
+        alias: "yh",
+        providerName: "anthropic",
+        config: { env: { ANTHROPIC_BASE_URL: "https://api.example.com", ANTHROPIC_API_KEY: "secret" } }
+      })),
+      edit: vi.fn(async () => undefined)
+    };
+    const hooks = createProviderCommandHooks({
+      service,
+      writeLine: vi.fn()
+    });
+
+    await expect(hooks.onProviderActive?.("cc", "yh")).rejects.toThrow(AccValidationError);
+    await expect(hooks.onProviderActive?.("gemini", "official")).rejects.toThrow(AccValidationError);
+  });
+
+  it("provider list marks the active alias with * suffix for codex", async () => {
+    const lines: string[] = [];
+    const service = {
+      add: vi.fn(async () => undefined),
+      list: vi.fn(async () => [
+        {
+          alias: "dev",
+          providerName: "openai",
+          config: {
+            baseUrl: "https://api.openai.com/v1",
+            apiKey: "sk-x",
+            requiresOpenAiAuth: false
+          }
+        },
+        {
+          alias: "prod",
+          providerName: "openai",
+          config: {
+            baseUrl: "https://api.openai.com/v1",
+            apiKey: "sk-y",
+            requiresOpenAiAuth: false
+          }
+        }
+      ]),
+      remove: vi.fn(async () => undefined),
+      get: vi.fn(async () => ({ alias: "dev", providerName: "openai", config: {} })),
+      edit: vi.fn(async () => undefined)
+    };
+    const activeStore = {
+      getActive: vi.fn(async () => "dev" as string | null),
+      setActive: vi.fn(async () => undefined)
+    };
+    const hooks = createProviderCommandHooks({
+      service,
+      activeStore,
+      writeLine: (line) => lines.push(line)
+    });
+
+    await hooks.onProviderList?.("codex");
+
+    expect(lines).toHaveLength(1);
+    const tableText = lines[0];
+    const tableRows = tableText.split("\n").filter((l) => l.includes("|"));
+    const devRow = tableRows.find((r) => r.includes("dev"));
+    const prodRow = tableRows.find((r) => r.includes("prod"));
+    expect(devRow).toContain("dev *");
+    expect(prodRow).not.toContain("*");
+  });
+
+  it("provider list shows no active marker when no alias is active", async () => {
+    const lines: string[] = [];
+    const service = {
+      add: vi.fn(async () => undefined),
+      list: vi.fn(async () => [
+        {
+          alias: "dev",
+          providerName: "openai",
+          config: {
+            baseUrl: "https://api.openai.com/v1",
+            apiKey: "sk-x",
+            requiresOpenAiAuth: false
+          }
+        }
+      ]),
+      remove: vi.fn(async () => undefined),
+      get: vi.fn(async () => ({ alias: "dev", providerName: "openai", config: {} })),
+      edit: vi.fn(async () => undefined)
+    };
+    const activeStore = {
+      getActive: vi.fn(async () => null as string | null),
+      setActive: vi.fn(async () => undefined)
+    };
+    const hooks = createProviderCommandHooks({
+      service,
+      activeStore,
+      writeLine: (line) => lines.push(line)
+    });
+
+    await hooks.onProviderList?.("codex");
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toContain("*");
+  });
+
 });
 
 function parseHeader(line: string): string[] {
