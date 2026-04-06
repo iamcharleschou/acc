@@ -1,6 +1,6 @@
 {
   "name": "@charleschou/acc",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Unified CLI to manage provider aliases and switch runtime environments for ClaudeCode, Codex, and Gemini.",
   "keywords": [
     "claude-code",
@@ -49,6 +49,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/iamcharleschou/acc.git"
-  }
+    "url": "git+https://github.com/charleschoux/acc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/charleschoux/acc/issues"
+  },
+  "homepage": "https://github.com/charleschoux/acc#readme"
 }
